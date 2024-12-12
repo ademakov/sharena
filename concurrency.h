@@ -14,8 +14,9 @@
 #ifndef CONCURRENCY_H
 #define CONCURRENCY_H
 
-#include "postgres.h"
 #include "atomic_ptr.h"
+
+#include "postgres.h"
 #include "storage/spin.h"
 
 /* ---------------
@@ -42,7 +43,7 @@ markptr_mark(pg_uintptr mptr)
 static inline pg_uintptr
 markptr_make(void *ptr, uint8 mark)
 {
-	AssertPointerAlignment(ptr, MPTR_ALIGN);
+	AssertPointerAlignment(ptr, MARKPTR_ALIGN);
 	return ((pg_uintptr) ptr) | (mark & MARKPTR_MASK);
 }
 
@@ -54,7 +55,7 @@ markptr_make(void *ptr, uint8 mark)
  * must have a RetireNode instance at the start.
  *
  * If there is a way to tell if the data is retired or still in use then
- * the memory for RetireNode might shared for some other use. E.g. it is
+ * the memory for RetireNode may be shared for some other use. E.g. it is
  * possible to use it for a marked pointer provided that the mark is not
  * equal to 0. See LazyListNode for an example.
  */
@@ -70,11 +71,11 @@ typedef pg_atomic_uintptr RetireNode;
  * William N. Scherer III, and Nir Shavit
  * "A Lazy Concurrent List-Based Set Algorithm"
  *
- * The original algorithm is modified to allow a list node to be in 3
- * states:
- *  -- be in list;
- *  -- be removed from a list but still used;
- *  -- be retired and waiting for memory reclamation.
+ * The original algorithm is modified to allow a list node to be in one
+ * of 3 states:
+ *  -- in a list;
+ *  -- removed from a list but still used;
+ *  -- retired and waiting for memory reclamation.
  * In the first two states two different non-zero pointer mark values
  * are used. In the last state the pointer is not marked.
  */

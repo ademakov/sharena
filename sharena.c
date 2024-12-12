@@ -14,8 +14,10 @@
 
 #include "sharena.h"
 
+#include "concurrency.h"
+
 #include "miscadmin.h"
-#include "storage/ipc.h"
+#include "storage/backendid.h"
 
 /*
  * The allocator is loosely based on the following paper:
@@ -345,7 +347,7 @@ SharInit(Size size)
 
 	/* Calculate the number of blocks reserved for meta data. */
 	nreserved = TYPEALIGN(SHAR_BLOCK_SIZE, reserved_size) / SHAR_BLOCK_SIZE;
-	elog(DEBUG1, "reserved %u blocks in shared arena (%lu %lu %lu)",
+	elog(INFO, "reserved %u blocks in shared arena (%lu %lu %lu)",
 		 nreserved, sizeof(SharBase), desc_size, perbe_size);
 	Assert(nreserved < shar_base->total_size);
 
@@ -380,8 +382,6 @@ SharAttach(void *base, Size size, bool init)
 	/* Bail out if already attached. */
 	if (shar_base != NULL)
 		return;
-
-	elog(DEBUG1, "!!! shmem attach %p %lu !!!", base, size);
 
 	/* Setup the base address. */
 	shar_base = (SharBase *) base;
@@ -436,7 +436,6 @@ SharGetBlock(void)
 	desc = SHAR_BLOCK_DESC(block);
 	desc->szcls_index = SHAR_SZCLS_BLOCK;
 
-	elog(DEBUG4, "SharGetBlock: %d", block);
 	return block;
 }
 
@@ -445,8 +444,6 @@ SharPutBlock(SharBlock block)
 {
 	SharDesc   *desc;
 	SharTBlock	oldtop, newtop;
-
-	elog(DEBUG4, "SharPutBlock: %d", block);
 
 	/* Mark the block as unused. */
 	desc = SHAR_BLOCK_DESC(block);
@@ -536,7 +533,7 @@ SharStartBlock(SharBlock block, uint16 szcls_index, SharClass *szcls)
 
 	/* Find out the number of chunks that fit into a block. */
 	total = SHAR_BLOCK_SIZE / size;
-	Assert(count > 1);
+	Assert(total > 1);
 
 	/* Prepare the chunk allocation state taking into account that
 	   the chunk with index 0 is allocated right away. */
@@ -582,7 +579,6 @@ SharAlloc(Size size)
 	SharClass  *szcls;
 	SharBlock	block;
 	SharChunk	chunk;
-	void	   *ptr;
 
 	/* Determine the required size class. */
 	index = SharGetSizeClassIndex(size);
@@ -672,10 +668,7 @@ SharAlloc(Size size)
 	}
 
 success:
-	ptr = SHAR_CHUNK_PTR(block, chunk, szcls->size);
-	elog(DEBUG4, "SharAlloc: size %lu/%d, block %d, chunk %d, ptr %p",
-		 size, szcls->size, block, chunk, ptr);
-	return ptr;
+	return SHAR_CHUNK_PTR(block, chunk, szcls->size);
 }
 
 /*
@@ -706,9 +699,6 @@ SharFree(void *ptr)
 	chunk = SHAR_PTR_CHUNK(block, ptr, szcls->size);
 	/* Find out the number of chunks that fit into a block. */
 	total = SHAR_BLOCK_SIZE / szcls->size;
-
-	elog(DEBUG4, "SharFree: size %d, block %d, chunk %d, ptr %p",
-		 szcls->size, block, chunk, ptr);
 
 	/* Free the chunk using the Treiber stack algorithm. */
 	oldalloc = SHAR_ALLOC_READ(&desc->alloc_state);
@@ -920,8 +910,6 @@ SharEpochEnd(void)
 	SharEpochTransfer(be, epoch - 1);
 	SharEpochTransfer(be, epoch);
 
-	elog(DEBUG4, "backend %d, epoch %u", MyBackendId, epoch);
-
 	/* Release the current backend. */
 	pg_atomic_clear_flag(&be->state);
 }
@@ -938,8 +926,6 @@ SharRetire(void *ptr)
 	/* Bail out on a NULL pointer. */
 	if (ptr == NULL)
 		return;
-
-	elog(DEBUG4, "SharRetire: %p", ptr);
 
 	/* Get the current backend record. */
 	be = SharGetBackend();

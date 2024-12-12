@@ -15,10 +15,7 @@
 #define SHARENA_H
 
 #include "postgres.h"
-#include "atomic_ptr.h"
-#include "concurrency.h"
-#include "port/atomics.h"
-#include "storage/backendid.h"
+#include "storage/ipc.h"
 
 #if SIZEOF_SIZE_T < 8
 # define SHAR_64			0
