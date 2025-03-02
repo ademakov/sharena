@@ -692,7 +692,7 @@ SharFree(void *ptr)
 	Assert(block > 0 && block < shar_base->total_size);
 	/* Find the associated block descriptor. */
 	desc = SHAR_BLOCK_DESC(block);
-	Assert(desc->szcls_index < SHAR_SZCLS_NUM);
+	Assert(desc->szcls_index > 0 && desc->szcls_index <= SHAR_SZCLS_NUM);
 
 	/* Find the chunk size class and index. */
 	szcls = SHAR_SIZE_CLASS(desc->szcls_index);
