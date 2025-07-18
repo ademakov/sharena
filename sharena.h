@@ -76,6 +76,9 @@ SharAlloc(Size size);
 void
 SharFree(void *ptr);
 
+Size
+SharGetChunkSize(void *ptr);
+
 /* ------------------------------------------------
  * Safe memory reclamation for lock-free algorithms
  */

@@ -17,7 +17,7 @@
 #include "concurrency.h"
 
 #include "miscadmin.h"
-#include "storage/backendid.h"
+#include "storage/procnumber.h"
 
 /*
  * The allocator is loosely based on the following paper:
@@ -282,8 +282,8 @@ SharDesc  *shar_desc;
 /* Table of per-backend data. */
 SharPerBE *shar_perbe;
 
-/* The shared arena size (in blocks). */
-static SharBlock shar_size = 8 * SHAR_TOTAL_SIZE_MIN;
+/* The shared arena size (in bytes). */
+static Size shar_size = 8 * SHAR_TOTAL_SIZE_MIN;
 
 static uint16 shar_chunk_sizes[] = {
 	16,   32,   48,   64,   80,   96,   112,  128,
@@ -769,10 +769,37 @@ SharFree(void *ptr)
 	}
 }
 
+/*
+ * Get the size of an allocated chunk.
+ */
+Size
+SharGetChunkSize(void *ptr)
+{
+	SharBlock	block;
+	SharDesc   *desc;
+	SharClass  *szcls;
+
+	/* Bail out on a NULL pointer. */
+	if (ptr == NULL)
+		return 0;
+
+	/* Find the block that contains the given pointer. */
+	block = SHAR_PTR_BLOCK(ptr);
+	Assert(block > 0 && block < shar_base->total_size);
+	/* Find the associated block descriptor. */
+	desc = SHAR_BLOCK_DESC(block);
+	Assert(desc->szcls_index > 0 && desc->szcls_index <= SHAR_SZCLS_NUM);
+	/* Find the chunk size class. */
+	szcls = SHAR_SIZE_CLASS(desc->szcls_index);
+
+	/* Return the size of the chunk. */
+	return szcls->size;
+}
+
 static SharPerBE *
 SharGetBackend(void)
 {
-	return &shar_perbe[MyBackendId];
+	return &shar_perbe[MyProcNumber];
 }
 
 static void
